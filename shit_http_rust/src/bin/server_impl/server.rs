@@ -1,8 +1,8 @@
 use std::{collections::{HashMap, VecDeque}, env, error::Error, fs, process::exit};
 use crate::bin::{structs::{empty_or_missing_config::EmptyOrMissingConfig, http_server::HTTPServer, rest_handler::RestHandler, routes::RoutesBuilder, web_handler::WebHandler}, traits::handler::{self, Handler}};
-pub fn create(routes:Option<RoutesBuilder>) -> HTTPServer{
+pub fn create(config:Option<String>,routes:Option<RoutesBuilder>) -> HTTPServer{
     println!("{}",get_config_path());
-    match unhandled_create(routes){
+    match unhandled_create(config,routes){
         Ok(t) => t,
         Err(e) => {
             default_handle_error(e);
@@ -10,8 +10,11 @@ pub fn create(routes:Option<RoutesBuilder>) -> HTTPServer{
         }
     }
 }
-pub fn unhandled_create(routes:Option<RoutesBuilder>) -> Result<HTTPServer,Box<dyn Error>>{
-    let config = parse_config(get_config_path())?;
+pub fn unhandled_create(config:Option<String>,routes:Option<RoutesBuilder>) -> Result<HTTPServer,Box<dyn Error>>{
+    let config = match config{
+        Some(t) => parse_config(t)?,
+        None => parse_config(fs::read_to_string(get_config_path())?)?
+    };
     let port = match config.get("port"){
         Some(t) => match t.parse::<i32>(){
             Ok(t) => t,
@@ -33,8 +36,8 @@ pub fn unhandled_create(routes:Option<RoutesBuilder>) -> Result<HTTPServer,Box<d
     };
     HTTPServer::new(port,config,handler)
 }
-pub fn try_create(routes:Option<RoutesBuilder>) -> Option<HTTPServer>{
-    match unhandled_create(routes){
+pub fn try_create(config:Option<String>,routes:Option<RoutesBuilder>) -> Option<HTTPServer>{
+    match unhandled_create(config,routes){
         Ok(t) => Some(t),
         Err(e) => None
     }
@@ -52,9 +55,9 @@ fn get_config_path() -> String{
     }
     "/shithttpserver/config/start.conf".to_string()
 }
-fn parse_config(conf_path:String) -> Result<HashMap<String,String>,Box<dyn Error>>{
-    let config = fs::read_to_string(conf_path)?;
-    let config = config.split("\n").collect::<Vec<&str>>();
+pub fn parse_config(config:String) -> Result<HashMap<String,String>,Box<dyn Error>>{
+    let config = config.split("\n").map(|s|s.trim()).filter(|s|!s.is_empty()).collect::<Vec<&str>>();
+    println!("{:?}",config);
     let mut map: HashMap<String,String>= HashMap::new();
     for line in config {
         let split_iter = line.split("=");

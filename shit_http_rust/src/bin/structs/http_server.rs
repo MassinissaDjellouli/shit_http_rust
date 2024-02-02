@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, VecDeque}, error::Error, io::{BufRead, BufReader, Write}};
 
-use crate::bin::traits::handler::{self, Handler};
+use crate::bin::{server_impl::server, traits::handler::{self, Handler}};
 
 use super::invalid_port::InvalidPort;
 
@@ -44,9 +44,7 @@ impl HTTPServer{
     pub fn get_config(&self) -> &HashMap<String,String>{
         &self.config
     }
-    pub fn get_handler(&self) -> &Box<dyn Handler>{
-        &self.handler
-    }
+
     fn read_tcp_stream(&self,mut stream:&std::net::TcpStream) -> Result<VecDeque<String>,Box<dyn Error>>{
         println!("Reading from stream");
         let buf_reader = BufReader::new(&mut stream);
