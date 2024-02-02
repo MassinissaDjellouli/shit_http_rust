@@ -1,7 +1,8 @@
-use std::{collections::{HashMap, VecDeque}, env, error::Error, fmt::format, fs, io::{BufRead, Write}, process::exit};
-use crate::bin::{structs::{empty_or_missing_config::EmptyOrMissingConfig,http_server::HTTPServer}, traits::handler::{self, Handler}};
-pub fn create() -> HTTPServer{
-    match unhandled_create(){
+use std::{collections::{HashMap, VecDeque}, env, error::Error, fs, process::exit};
+use crate::bin::{structs::{empty_or_missing_config::EmptyOrMissingConfig, http_server::HTTPServer, rest_handler::RestHandler, routes::RoutesBuilder, web_handler::WebHandler}, traits::handler::{self, Handler}};
+pub fn create(routes:Option<RoutesBuilder>) -> HTTPServer{
+    println!("{}",get_config_path());
+    match unhandled_create(routes){
         Ok(t) => t,
         Err(e) => {
             default_handle_error(e);
@@ -9,7 +10,7 @@ pub fn create() -> HTTPServer{
         }
     }
 }
-pub fn unhandled_create() -> Result<HTTPServer,Box<dyn Error>>{
+pub fn unhandled_create(routes:Option<RoutesBuilder>) -> Result<HTTPServer,Box<dyn Error>>{
     let config = parse_config(get_config_path())?;
     let port = match config.get("port"){
         Some(t) => match t.parse::<i32>(){
@@ -18,20 +19,22 @@ pub fn unhandled_create() -> Result<HTTPServer,Box<dyn Error>>{
         },
         None => 8080
     };
-    let handler = match config.get("handler"){
+    println!("Using port {}",port);
+    let handler:Box<dyn Handler> = match config.get("handler"){
         Some(t) => match t.as_str(){
-            "web" => 
+            "web" => Box::new(WebHandler::new()), 
+            "rest" => Box::new(RestHandler::new(routes.expect("Routes not found."))),
             _ => {
                 println!("Handler '{}' not found, using default",t);
-                
+                Box::new(WebHandler::new())
             }
         },
-        None => Box::new(handler::EchoHandler::new()) as Box<dyn Handler>
+        None => Box::new(WebHandler::new())
     };
-    HTTPServer::new(port,config)
+    HTTPServer::new(port,config,handler)
 }
-pub fn try_create() -> Option<HTTPServer>{
-    match unhandled_create(){
+pub fn try_create(routes:Option<RoutesBuilder>) -> Option<HTTPServer>{
+    match unhandled_create(routes){
         Ok(t) => Some(t),
         Err(e) => None
     }
@@ -40,7 +43,7 @@ fn get_config_path() -> String{
     match env::current_dir() {
         Ok(t) => {
             let mut path = t.into_os_string().into_string().expect("Could not convert path to string");
-            path.push_str("/config/start.conf");
+            path.push_str("\\config\\start.conf");
             return path;
         },
         Err(e) => {

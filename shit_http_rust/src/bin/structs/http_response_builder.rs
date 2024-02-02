@@ -32,7 +32,7 @@ impl HTTPResponseBuilder{
         self
     }
     pub fn build(&self) -> String{
-        let code = match self.status_code{
+        let code = match &self.status_code{
             Some(t) => t,
             None => {
                 println!("No status code set, returning 500");
